@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Analysis System</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #0b0c10;
+            --card-bg: rgba(28, 30, 34, 0.8);
+            --accent: #ff6b3d;
+            --text: #ffffff;
+            --text-dim: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; overflow-x: hidden; }
+
+        /* AUTH & OVERLAY SCREENS */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); z-index: 1000; display: flex;
+            align-items: center; justify-content: center; text-align: center;
+        }
+
+        .modal {
+            background: var(--card-bg); padding: 40px; border-radius: 24px;
+            border: 1px solid var(--glass-border); width: 400px;
+            backdrop-filter: blur(15px);
+        }
+
+        .hidden { display: none !important; }
+
+        /* Dashboard Layout */
+        .dashboard {
+            display: grid; grid-template-columns: 350px 1fr 320px; gap: 20px;
+            max-width: 1400px; margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card-bg); backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border); border-radius: 28px; padding: 25px;
+        }
+
+        .hero-card {
+            background: linear-gradient(135deg, #ff6b3d, #ff3d00);
+            grid-row: span 1; display: flex; flex-direction: column; justify-content: space-between;
+        }
+
+        /* Stats Rows */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .stat-box { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 18px; text-align: center; }
+        .stat-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; }
+        .stat-val { font-size: 1.2rem; font-weight: 700; display: block; }
+
+        /* Controls & Inputs */
+        input, select {
+            width: 100%; padding: 12px; margin: 8px 0; border-radius: 12px;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+            color: white; outline: none;
+        }
+
+        select option { background-color: #1c1e22; color: white; }
+
+        button {
+            width: 100%; padding: 12px; border-radius: 12px; border: none;
+            background: var(--accent); color: white; font-weight: 600; cursor: pointer;
+            transition: 0.3s; margin-top: 5px;
+        }
+        button:hover { opacity: 0.8; transform: translateY(-2px); }
+        .btn-alt { background: white; color: black; }
+
+        .auth-toggle { margin-top: 15px; font-size: 0.85rem; color: var(--text-dim); cursor: pointer; }
+        .auth-toggle b { color: var(--accent); }
+
+        /* Data List */
+        .data-container { margin-top: 20px; max-height: 250px; overflow-y: auto; }
+        .data-item {
+            display: flex; justify-content: space-between; padding: 10px 0;
+            border-bottom: 1px solid var(--glass-border); font-size: 0.9rem;
+        }
+
+        #log { font-size: 0.8rem; color: #4ade80; margin-top: 10px; min-height: 1.2em; }
+
+        @media (max-width: 1000px) { .dashboard { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <div id="authOverlay" class="overlay">
+        <div class="modal">
+            <h2 id="authTitle" style="margin-bottom: 10px;">Create Account</h2>
+            <p style="color: var(--text-dim); margin-bottom: 20px; font-size: 0.9rem;">Join the Weather Analysis System</p>
+            
+            <input type="email" id="authEmail" placeholder="Email Address">
+            <input type="password" id="authPass" placeholder="Password">
+            
+            <button id="authBtn" onclick="handleAuth()">Sign Up</button>
+            
+            <p class="auth-toggle" onclick="toggleAuthMode()">
+                <span id="toggleText">Already have an account?</span> <b id="toggleLink">Log In</b>
+            </p>
+        </div>
+    </div>
+
+    <div id="locationOverlay" class="overlay hidden">
+        <div class="modal">
+            <h2 style="margin-bottom: 10px;">Welcome Back!</h2>
+            <p style="color: var(--text-dim); margin-bottom: 20px;">Initialize your tracking session</p>
+            <input type="text" id="initialLoc" placeholder="Enter City Location (e.g. London)">
+            <button onclick="setLocation()">Enter Dashboard</button>
+        </div>
+    </div>
+
+    <div class="dashboard hidden" id="mainDash">
+        <div>
+            <div class="card hero-card">
+                <div>
+                    <h2 id="displayLoc">Location</h2>
+                    <p style="opacity: 0.8;">BST Analysis Mode</p>
+                </div>
+                <h1 style="font-size: 4.5rem; margin: 20px 0;" id="avgDisplay">--°C</h1>
+                <p>Average Temperature</p>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-box"><span class="stat-label">Min Temp</span><span class="stat-val" id="minDisplay">--</span></div>
+                <div class="stat-box"><span class="stat-label">Max Temp</span><span class="stat-val" id="maxDisplay">--</span></div>
+            </div>
+            <div class="card" style="margin-top: 20px;">
+                <label class="stat-label">Sort Display Data</label>
+                <select id="sortOrder" onchange="renderDataList()">
+                    <option value="latest">Latest Order</option>
+                    <option value="reverse">Reverse Order</option>
+                </select>
+                <div class="data-container" id="dataList"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Temperature Analysis Chart</h3>
+            <div style="height: 300px; margin-top: 20px;"><canvas id="weatherChart"></canvas></div>
+            <div style="margin-top: 30px; border-top: 1px solid var(--glass-border); padding-top: 20px;">
+                <div style="display: flex; gap: 10px;"><input type="date" id="dateIn"><input type="number" id="tempIn" placeholder="Temp °C"></div>
+                <button onclick="insertRecord()">Insert Record</button>
+                <p id="log"></p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Management</h3>
+            <div style="margin-top: 20px;"><label class="stat-label">Search by Date</label><input type="date" id="searchDate"><button class="btn-alt" onclick="searchByDate()">Search by Date</button></div>
+            <div style="margin-top: 20px;"><label class="stat-label">Search by Temp</label><input type="number" id="searchTemp" placeholder="Find specific temp..."><button class="btn-alt" onclick="searchByTemp()">Search by Temp</button></div>
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--glass-border);"><label class="stat-label">Delete Record</label><input type="date" id="deleteDate"><button onclick="deleteRecord()">Delete by Date</button></div>
+            <button class="btn-alt" style="margin-top: 20px; opacity: 0.6;" onclick="location.reload()">Log Out</button>
+        </div>
+    </div>
+
+<script>
+    /* --- AUTH LOGIC --- */
+    let isLoginMode = false;
+    let users = {}; // Simulated Database
+
+    function toggleAuthMode() {
+        isLoginMode = !isLoginMode;
+        document.getElementById('authTitle').innerText = isLoginMode ? "Welcome Back" : "Create Account";
+        document.getElementById('authBtn').innerText = isLoginMode ? "Log In" : "Sign Up";
+        document.getElementById('toggleText').innerText = isLoginMode ? "New here?" : "Already have an account?";
+        document.getElementById('toggleLink').innerText = isLoginMode ? "Sign Up" : "Log In";
+    }
+
+    function handleAuth() {
+        const email = document.getElementById('authEmail').value;
+        const pass = document.getElementById('authPass').value;
+
+        if (!email || !pass) return alert("Please fill all fields");
+
+        if (isLoginMode) {
+            if (users[email] && users[email] === pass) {
+                document.getElementById('authOverlay').classList.add('hidden');
+                document.getElementById('locationOverlay').classList.remove('hidden');
+            } else {
+                alert("Invalid email or password");
+            }
+        } else {
+            if (users[email]) return alert("User already exists");
+            users[email] = pass;
+            alert("Account created! Please log in.");
+            toggleAuthMode();
+        }
+    }
+
+    /* --- BST DATA STRUCTURE --- */
+    let bstRoot = null;
+    function createNode(date, temp) { return { date, temp, left: null, right: null }; }
+
+    function insertBST(node, date, temp) {
+        if (!node) return createNode(date, temp);
+        if (date < node.date) node.left = insertBST(node.left, date, temp);
+        else if (date > node.date) node.right = insertBST(node.right, date, temp);
+        return node;
+    }
+
+    function findInBST(node, date) {
+        if (!node || node.date === date) return node;
+        return date < node.date ? findInBST(node.left, date) : findInBST(node.right, date);
+    }
+
+    function findTempsBST(node, temp, results = []) {
+        if (node) {
+            findTempsBST(node.left, temp, results);
+            if (node.temp == temp) results.push(node.date);
+            findTempsBST(node.right, temp, results);
+        }
+        return results;
+    }
+
+    function deleteFromBST(node, date) {
+        if (!node) return null;
+        if (date < node.date) node.left = deleteFromBST(node.left, date);
+        else if (date > node.date) node.right = deleteFromBST(node.right, date);
+        else {
+            if (!node.left) return node.right;
+            if (!node.right) return node.left;
+            let t = node.right; while (t.left) t = t.left;
+            node.date = t.date; node.temp = t.temp;
+            node.right = deleteFromBST(node.right, t.date);
+        }
+        return node;
+    }
+
+    function getInOrder(node, list = []) {
+        if (node) { getInOrder(node.left, list); list.push(node); getInOrder(node.right, list); }
+        return list;
+    }
+
+    /* --- UI LOGIC --- */
+    let weatherChart;
+
+    function setLocation() {
+        const loc = document.getElementById('initialLoc').value;
+        if (!loc) return alert("Please enter a location");
+        document.getElementById('displayLoc').innerText = loc;
+        document.getElementById('locationOverlay').classList.add('hidden');
+        document.getElementById('mainDash').classList.remove('hidden');
+        initChart();
+    }
+
+    function insertRecord() {
+        const d = document.getElementById('dateIn').value;
+        const t = parseFloat(document.getElementById('tempIn').value);
+        if (!d || isNaN(t)) return alert("Invalid Input");
+        if (findInBST(bstRoot, d)) {
+            document.getElementById('log').innerText = `Error: Date ${d} exists.`;
+            document.getElementById('log').style.color = "#fb7185";
+        } else {
+            bstRoot = insertBST(bstRoot, d, t);
+            document.getElementById('log').innerText = `Added: ${d}`;
+            document.getElementById('log').style.color = "#4ade80";
+            refreshDashboard();
+        }
+    }
+
+    function searchByDate() {
+        const d = document.getElementById('searchDate').value;
+        const r = findInBST(bstRoot, d);
+        alert(r ? `Found: ${r.date} was ${r.temp}°C` : "No record found.");
+    }
+
+    function searchByTemp() {
+        const t = parseFloat(document.getElementById('searchTemp').value);
+        const r = findTempsBST(bstRoot, t);
+        alert(r.length > 0 ? `Found on: ${r.join(', ')}` : "No matching records.");
+    }
+
+    function deleteRecord() {
+        const d = document.getElementById('deleteDate').value;
+        if (findInBST(bstRoot, d)) {
+            bstRoot = deleteFromBST(bstRoot, d);
+            refreshDashboard();
+        } else { alert("Date not found."); }
+    }
+
+    function refreshDashboard() {
+        const data = getInOrder(bstRoot);
+        if (data.length > 0) {
+            const temps = data.map(n => n.temp);
+            document.getElementById('minDisplay').innerText = Math.min(...temps) + "°C";
+            document.getElementById('maxDisplay').innerText = Math.max(...temps) + "°C";
+            document.getElementById('avgDisplay').innerText = (temps.reduce((a,b)=>a+b,0)/data.length).toFixed(1) + "°C";
+        }
+        renderDataList();
+        weatherChart.data.labels = data.map(n => n.date);
+        weatherChart.data.datasets[0].data = data.map(n => n.temp);
+        weatherChart.update();
+    }
+
+    function renderDataList() {
+        let data = getInOrder(bstRoot);
+        if (document.getElementById('sortOrder').value === 'latest') data.reverse();
+        document.getElementById('dataList').innerHTML = data.map(n => `
+            <div class="data-item"><span>${n.date}</span><span style="color:var(--accent);font-weight:600;">${n.temp}°C</span></div>
+        `).join('');
+    }
+
+    function initChart() {
+        const ctx = document.getElementById('weatherChart').getContext('2d');
+        weatherChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Temp', data: [], borderColor: '#ff6b3d', tension: 0.4 }] },
+            options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+</script>
+</body>
+</html>
