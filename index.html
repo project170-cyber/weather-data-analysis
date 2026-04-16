@@ -94,7 +94,7 @@
             <h2 id="authTitle" style="margin-bottom: 10px;">Create Account</h2>
             <p style="color: var(--text-dim); margin-bottom: 20px; font-size: 0.9rem;">Join the Weather Analysis System</p>
             
-            <input type="email" id="authEmail" placeholder="Email Address">
+            <input type="email" id="authEmail" placeholder="Email">
             <input type="password" id="authPass" placeholder="Password">
             
             <button id="authBtn" onclick="handleAuth()">Sign Up</button>
@@ -160,7 +160,7 @@
 <script>
     /* --- AUTH LOGIC --- */
     let isLoginMode = false;
-    let users = {}; // Simulated Database
+    let users = {}; 
 
     function toggleAuthMode() {
         isLoginMode = !isLoginMode;
@@ -171,10 +171,20 @@
     }
 
     function handleAuth() {
-        const email = document.getElementById('authEmail').value;
+        const email = document.getElementById('authEmail').value.trim();
         const pass = document.getElementById('authPass').value;
 
         if (!email || !pass) return alert("Please fill all fields");
+
+        // Validate @gmail.com domain
+        if (!email.toLowerCase().endsWith("@gmail.com")) {
+            return alert("Invalid Email: Only @gmail.com addresses are allowed.");
+        }
+
+        // Validate password length
+        if (pass.length < 4) {
+            return alert("Invalid Password: Must be at least 4 characters long.");
+        }
 
         if (isLoginMode) {
             if (users[email] && users[email] === pass) {
@@ -308,10 +318,40 @@
         const ctx = document.getElementById('weatherChart').getContext('2d');
         weatherChart = new Chart(ctx, {
             type: 'line',
-            data: { labels: [], datasets: [{ label: 'Temp', data: [], borderColor: '#ff6b3d', tension: 0.4 }] },
-            options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            data: { 
+                labels: [], 
+                datasets: [{ 
+                    label: 'Temperature', 
+                    data: [], 
+                    borderColor: '#ff6b3d', 
+                    backgroundColor: 'rgba(255, 107, 61, 0.2)',
+                    fill: true,
+                    tension: 0.4 
+                }] 
+            },
+            options: { 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)', // Visible grid lines
+                            borderColor: 'rgba(255, 255, 255, 0.2)'
+                        },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)', // Visible grid lines
+                            borderColor: 'rgba(255, 255, 255, 0.2)'
+                        },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
         });
     }
 </script>
 </body>
+</html>
 </html>
